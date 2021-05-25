@@ -2,9 +2,12 @@ const express = require('express');
 const exphbs = require('express-handlebars');
 const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
+const { ImapFlow } = require('imapflow');
 const userDetails = require('../config.prod');
+var client
 
 const authTokens = {}
+var mailsToOrganize;
 var app = express();
 
 // To support URL-encoded bodies
@@ -30,11 +33,12 @@ app.use((req, res, next) => {
 });
 
 const requireAuth = (req, res, next) => {
-  if (req.user) {
-    next();
-  } else {
-    res.redirect('/login');
-  }
+  next();
+  // if (req.user) {
+  //   next();
+  // } else {
+  //   res.redirect('/login');
+  // }
 };
 
 app.get('/', requireAuth, (req, res) => {
@@ -45,9 +49,52 @@ app.get('/organizer', requireAuth, (req,res) => {
   res.render('home');
 });
 
-app.get('/mailToIndex', requireAuth, (req,res) => {
-  console.log(req.body)
-})
+app.post('/mailToIndex', requireAuth, async (req,res) => {
+  console.log(req.body.mailIndex)
+  if (req.body.mailIndex === 0) {
+    if (client === undefined) {
+      client = new ImapFlow({
+        host: userDetails.mailConfig.host,
+        port: userDetails.mailConfig.port,
+        secure: true,
+        auth:{
+          user: userDetails.mailConfig.username,
+          pass: userDetails.mailConfig.password
+        },
+        logger: {}
+      });
+    }
+    // fetch mails for the first time
+    console.log('Connecting to client')
+    await client.connect();
+    console.log("Client connected");
+    console.log('Opening inbox')
+    let mailbox = await client.mailboxOpen('Inbox');
+    console.log('Inbox opened');
+    try{
+      console.log('Fetching all inbox mail');
+      mailsToOrganize = await client.fetch('1:*', {envelope: true});
+      mailToReturn = await mailsToOrganize.next();
+      fromAddress = mailToReturn.value.envelope.from[0].address;
+      subject = mailToReturn.value.envelope.subject;
+      res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+    } catch (err){
+      console.log(err);
+      res.json({result: "Not ok"});
+    } finally {
+      console.log('\nClosing mailbox');
+      await client.mailboxClose();
+      console.log('Mailbox closed');
+      await client.logout();
+      console.log('Client logged out');
+    }
+  } else {
+    mailToReturn = await mailsToOrganize.next();
+    fromAddress = mailToReturn.value.envelope.from[0].address;
+    subject = mailToReturn.value.envelope.subject;
+    res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+  }
+});
 
 app.get('/login', (req, res) => {
   res.render('login');
