@@ -1,0 +1,10 @@
+{{#if message}}
+<p>{{message}}</p>
+{{/if}}
+<form method="POST" action="/login">
+  <label>Username</label>
+  <input type="text" name="username" placeholder="Username">
+  <label>Password</label>
+  <input type="password" name="password" placeholder="Password">
+  <button type="submit">Login</button>
+</form>
