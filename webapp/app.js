@@ -13,6 +13,7 @@ var app = express();
 // To support URL-encoded bodies
 app.use(express.urlencoded({extended: true}));
 app.use(express.json());
+app.use(express.static('webapp/public'));
 
 
 // To parse cookies from the HTTP Request
@@ -52,18 +53,16 @@ app.get('/organizer', requireAuth, (req,res) => {
 app.post('/mailToIndex', requireAuth, async (req,res) => {
   console.log(req.body.mailIndex)
   if (req.body.mailIndex === 0) {
-    if (client === undefined) {
-      client = new ImapFlow({
-        host: userDetails.mailConfig.host,
-        port: userDetails.mailConfig.port,
-        secure: true,
-        auth:{
-          user: userDetails.mailConfig.username,
-          pass: userDetails.mailConfig.password
-        },
-        logger: {}
-      });
-    }
+    client = new ImapFlow({
+      host: userDetails.mailConfig.host,
+      port: userDetails.mailConfig.port,
+      secure: true,
+      auth:{
+        user: userDetails.mailConfig.username,
+        pass: userDetails.mailConfig.password
+      },
+      logger: {}
+    });
     // fetch mails for the first time
     console.log('Connecting to client')
     await client.connect();
@@ -75,25 +74,39 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
       console.log('Fetching all inbox mail');
       mailsToOrganize = await client.fetch('1:*', {envelope: true});
       mailToReturn = await mailsToOrganize.next();
-      fromAddress = mailToReturn.value.envelope.from[0].address;
-      subject = mailToReturn.value.envelope.subject;
-      res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+      if (mailToReturn.value) {
+        fromAddress = mailToReturn.value.envelope.from[0].address;
+        subject = mailToReturn.value.envelope.subject;
+        res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+      } else {
+        res.json({result: "nomail"})
+      }
     } catch (err){
       console.log(err);
       res.json({result: "Not ok"});
     } finally {
+      await client.logout();
+      console.log('Client logged out');
       console.log('\nClosing mailbox');
       await client.mailboxClose();
       console.log('Mailbox closed');
-      await client.logout();
-      console.log('Client logged out');
     }
   } else {
     mailToReturn = await mailsToOrganize.next();
-    fromAddress = mailToReturn.value.envelope.from[0].address;
-    subject = mailToReturn.value.envelope.subject;
-    res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+    if (mailToReturn.value) {
+      fromAddress = mailToReturn.value.envelope.from[0].address;
+      subject = mailToReturn.value.envelope.subject;
+      res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+    } else {
+      res.json({result: "nomail"})
+    }
   }
+});
+
+app.post('/bucketMail', (req,res) => {
+  const {bucket, fromAddress} = req.body;
+  console.log(`Sending mail from ${fromAddress} to ${bucket} bucket`);
+  res.json({result: "ok"})
 });
 
 app.get('/login', (req, res) => {

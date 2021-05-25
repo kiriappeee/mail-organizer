@@ -1,22 +1,4 @@
+<script src="scripts/index.js"></script>
 <h1>Example App: Home</h1>
 <p>Below we'll see an example mail</p>
-<script>
-  var mailIndex = 0;
-  console.log("testing");
-  let options = {
-    method: "POST",
-    headers: {
-      'Content-Type': 'application/json;charset=utf-8'
-    },
-    body: JSON.stringify({mailIndex: mailIndex})
-  }
-  fetch('mailToIndex', options)
-    .then((res) => {
-      res.json().then((j) => {
-        console.log(j.result);
-      });
-    })
-    .catch((err) => {
-      console.log(err);
-    })
-</script>
+<div id="mailToSort"></div>
