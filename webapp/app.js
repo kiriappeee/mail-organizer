@@ -55,6 +55,7 @@ app.get('/organizer', requireAuth, (req,res) => {
 
 app.post('/mailToIndex', requireAuth, async (req,res) => {
   console.log(req.body.mailIndex)
+  let sortedMails = 0
   if (req.body.mailIndex === 0) {
     sortedMailConfig = JSON.parse(fs.readFileSync('sorted-mail.json'));
     ignoreMail = {}
@@ -85,16 +86,17 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
           subject = mailToReturn.value.envelope.subject;
           uid = mailToReturn.value.uid;
           if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
-            res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid});
+            res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid, sortedMails: sortedMails});
             break;
           } else {
             if (sortedMailConfig[fromAddress]) {
               sortMail(uid, sortedMailConfig[fromAddress]);
+              sortedMails += 1
               console.log(`Sorting mail with subject ${subject} from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
             }
           }
         } else {
-          res.json({result: "nomail"})
+          res.json({result: "nomail", sortedMails: sortedMails})
           break;
         }
       }
@@ -117,16 +119,17 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
         subject = mailToReturn.value.envelope.subject;
         uid = mailToReturn.value.uid;
         if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
-          res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid});
+          res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid, sortedMails: sortedMails});
           break;
         } else {
           if (sortedMailConfig[fromAddress]) {
             sortMail(uid, sortedMailConfig[fromAddress]);
+            sortedMails += 1
             console.log(`Sorting mail with subject ${subject} from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
           }
         }
       } else {
-        res.json({result: "nomail"})
+        res.json({result: "nomail", sortedMails: sortedMails})
         break;
       }
     }
@@ -206,6 +209,7 @@ app.post('/bucketMail', requireAuth, (req,res) => {
   if (bucket !== 'i') {
     sortedMailConfig[fromAddress] = bucket;
     sortMail(uid, sortedMailConfig[fromAddress]);
+    fs.writeFileSync('sorted-mail.json', JSON.stringify(sortedMailConfig));
     console.log(`Sorting mail from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
   } else {
     ignoreMail[fromAddress] = bucket;

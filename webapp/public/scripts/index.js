@@ -1,5 +1,7 @@
 const indexMail = () => {
-  console.log("testing func");
+  if (mailIndex === 0) {
+    document.getElementById("mailToSort").innerHTML = '<p>Please wait while your mailbox is checked.</p>'
+  }
   let options = {
     method: "POST",
     headers: {
@@ -22,12 +24,17 @@ const indexMail = () => {
   <button onclick='bucketMail("i", "${j.fromAddress}", ${j.uid})'>Ignore</button>
 </div>`;
           mailIndex = 1;
+          sortedMailCount += j.sortedMails;
         } else if (j.result === "nomail") {
-          document.getElementById("mailToSort").innerHTML = `<p>All mail has been organized for this session</p>
+          sortedMailCount += j.sortedMails;
+          document.getElementById("mailToSort").innerHTML = `<p>All mail has been organized for this session.<p>
+<p><strong>Number of mails sorted in this session: </strong>${sortedMailCount}</p>
+<p><strong>Last checked at: </strong>${Date()}</p>
 <div>
   <button onclick='indexMail()'>Check for new mail</button>
 </div>`;
           mailIndex = 0;
+          sortedMailCount = 0;
         }
       });
     })
@@ -53,6 +60,7 @@ const bucketMail = (bucket, fromAddress, uid) => {
       res.json().then((j) => {
         if (j.result === "ok") {
           console.log('Mail bucketed correctly');
+          sortedMailCount += 1;
           indexMail();
         }
       });
@@ -60,5 +68,6 @@ const bucketMail = (bucket, fromAddress, uid) => {
 }
 
 var mailIndex = 0;
+var sortedMailCount = 0;
 console.log("testing");
 indexMail();
