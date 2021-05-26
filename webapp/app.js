@@ -5,11 +5,13 @@ const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
 const { ImapFlow } = require('imapflow');
 const userDetails = require('../config.prod');
-var client
 
 const authTokens = {}
 var mailsToOrganize;
+var ignoreMail = {};
+let sortedMailConfig = JSON.parse(fs.readFileSync('sorted-mail.json'));
 var app = express();
+
 
 // To support URL-encoded bodies
 app.use(express.urlencoded({extended: true}));
@@ -35,12 +37,12 @@ app.use((req, res, next) => {
 });
 
 const requireAuth = (req, res, next) => {
-  next();
-  // if (req.user) {
-  //   next();
-  // } else {
-  //   res.redirect('/login');
-  // }
+  // next();
+  if (req.user) {
+    next();
+  } else {
+    res.redirect('/login');
+  }
 };
 
 app.get('/', requireAuth, (req, res) => {
@@ -53,10 +55,10 @@ app.get('/organizer', requireAuth, (req,res) => {
 
 app.post('/mailToIndex', requireAuth, async (req,res) => {
   console.log(req.body.mailIndex)
-  let sortedMailConfig = JSON.parse(fs.readFileSync('sorted-mail.json'));
-  let ignoreMail = {};
   if (req.body.mailIndex === 0) {
-    client = new ImapFlow({
+    sortedMailConfig = JSON.parse(fs.readFileSync('sorted-mail.json'));
+    ignoreMail = {}
+    const client = new ImapFlow({
       host: userDetails.mailConfig.host,
       port: userDetails.mailConfig.port,
       secure: true,
@@ -69,7 +71,7 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
     // fetch mails for the first time
     console.log('Connecting to client')
     await client.connect();
-    console.log("Client connected");
+    // console.log("Client connected");
     console.log('Opening inbox')
     let mailbox = await client.mailboxOpen('Inbox');
     console.log('Inbox opened');
@@ -81,9 +83,15 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
         if (mailToReturn.value) {
           fromAddress = mailToReturn.value.envelope.from[0].address;
           subject = mailToReturn.value.envelope.subject;
+          uid = mailToReturn.value.uid;
           if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
-            res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+            res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid});
             break;
+          } else {
+            if (sortedMailConfig[fromAddress]) {
+              sortMail(uid, sortedMailConfig[fromAddress]);
+              console.log(`Sorting mail with subject ${subject} from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
+            }
           }
         } else {
           res.json({result: "nomail"})
@@ -94,11 +102,12 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
       console.log(err);
       res.json({result: "Not ok"});
     } finally {
-      await client.logout();
-      console.log('Client logged out');
-      console.log('\nClosing mailbox');
+      console.log('Closing mailbox');
       await client.mailboxClose();
       console.log('Mailbox closed');
+      console.log('Logging client out');
+      await client.logout();
+      console.log('Client logged out');
     }
   } else {
     while (true){
@@ -106,9 +115,15 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
       if (mailToReturn.value) {
         fromAddress = mailToReturn.value.envelope.from[0].address;
         subject = mailToReturn.value.envelope.subject;
+        uid = mailToReturn.value.uid;
         if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
-          res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+          res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid});
           break;
+        } else {
+          if (sortedMailConfig[fromAddress]) {
+            sortMail(uid, sortedMailConfig[fromAddress]);
+            console.log(`Sorting mail with subject ${subject} from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
+          }
         }
       } else {
         res.json({result: "nomail"})
@@ -118,9 +133,83 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
   }
 });
 
-app.post('/bucketMail', (req,res) => {
-  const {bucket, fromAddress} = req.body;
+const sortMail = async (uid, sortConfig) => {
+  const client = new ImapFlow({
+    host: userDetails.mailConfig.host,
+    port: userDetails.mailConfig.port,
+    secure: true,
+    auth:{
+      user: userDetails.mailConfig.username,
+      pass: userDetails.mailConfig.password
+    },
+    logger: {}
+  });
+  try {
+    console.log('Connecting to client');
+    await client.connect();
+    console.log('Opening inbox');
+    await client.mailboxOpen('Inbox');
+    console.log('Inbox opened');
+    console.log("Client connected");
+    if (sortConfig === 'o'){
+      console.log('Screened out');
+      console.log(uid);
+      console.log('Marking message as read');
+      await client.messageFlagsAdd(uid,
+      ['\\Seen'],
+      {uid:true});
+      console.log('Moving message to Screened out folder');
+      await client.messageMove(uid,
+      'Screened out',
+      {uid: true});
+    } else if (sortConfig === 'f'){
+      console.log('To the feed');
+      console.log('Marking message as read');
+      await client.messageFlagsAdd(uid,
+      ['\\Seen'],
+      {uid:true});
+      console.log('Moving message to feed folder');
+      await client.messageMove(uid,
+      'Feed',
+      {uid: true});
+    } else if (sortConfig === 'p'){
+      console.log('To the paper trail');
+      console.log('Marking message as read');
+      await client.messageFlagsAdd(uid,
+      ['\\Seen'],
+      {uid:true});
+      console.log('Moving message to paper trail folder');
+      await client.messageMove(uid,
+      'Paper Trail',
+      {uid: true});
+    } else if (sortConfig === 'c'){
+      console.log('To conversations');
+      console.log('Moving message to conversations folder');
+      await client.messageMove(uid,
+      'Conversations',
+      {uid: true});
+    }
+  }catch(err) {
+    console.log(err)
+  } finally {
+    console.log('Closing mailbox');
+    await client.mailboxClose();
+    console.log('Mailbox closed');
+    console.log('Logging client out');
+    await client.logout();
+    console.log('Client logged out');
+  }
+}
+app.post('/bucketMail', requireAuth, (req,res) => {
+  const {bucket, fromAddress, uid} = req.body;
   console.log(`Sending mail from ${fromAddress} to ${bucket} bucket`);
+  if (bucket !== 'i') {
+    sortedMailConfig[fromAddress] = bucket;
+    sortMail(uid, sortedMailConfig[fromAddress]);
+    console.log(`Sorting mail from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
+  } else {
+    ignoreMail[fromAddress] = bucket;
+  }
   res.json({result: "ok"})
 });
 
