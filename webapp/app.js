@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const exphbs = require('express-handlebars');
 const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
@@ -52,6 +53,8 @@ app.get('/organizer', requireAuth, (req,res) => {
 
 app.post('/mailToIndex', requireAuth, async (req,res) => {
   console.log(req.body.mailIndex)
+  let sortedMailConfig = JSON.parse(fs.readFileSync('sorted-mail.json'));
+  let ignoreMail = {};
   if (req.body.mailIndex === 0) {
     client = new ImapFlow({
       host: userDetails.mailConfig.host,
@@ -73,13 +76,19 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
     try{
       console.log('Fetching all inbox mail');
       mailsToOrganize = await client.fetch('1:*', {envelope: true});
-      mailToReturn = await mailsToOrganize.next();
-      if (mailToReturn.value) {
-        fromAddress = mailToReturn.value.envelope.from[0].address;
-        subject = mailToReturn.value.envelope.subject;
-        res.json({result: "ok", fromAddress: fromAddress, subject: subject});
-      } else {
-        res.json({result: "nomail"})
+      while (true) {
+        mailToReturn = await mailsToOrganize.next();
+        if (mailToReturn.value) {
+          fromAddress = mailToReturn.value.envelope.from[0].address;
+          subject = mailToReturn.value.envelope.subject;
+          if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
+            res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+            break;
+          }
+        } else {
+          res.json({result: "nomail"})
+          break;
+        }
       }
     } catch (err){
       console.log(err);
@@ -92,13 +101,19 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
       console.log('Mailbox closed');
     }
   } else {
-    mailToReturn = await mailsToOrganize.next();
-    if (mailToReturn.value) {
-      fromAddress = mailToReturn.value.envelope.from[0].address;
-      subject = mailToReturn.value.envelope.subject;
-      res.json({result: "ok", fromAddress: fromAddress, subject: subject});
-    } else {
-      res.json({result: "nomail"})
+    while (true){
+      mailToReturn = await mailsToOrganize.next();
+      if (mailToReturn.value) {
+        fromAddress = mailToReturn.value.envelope.from[0].address;
+        subject = mailToReturn.value.envelope.subject;
+        if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
+          res.json({result: "ok", fromAddress: fromAddress, subject: subject});
+          break;
+        }
+      } else {
+        res.json({result: "nomail"})
+        break;
+      }
     }
   }
 });
