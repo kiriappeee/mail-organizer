@@ -25,16 +25,38 @@ const indexMail = () => {
 </div>`;
           mailIndex = 1;
           sortedMailCount += j.sortedMails;
+          sortedMailTypes.o += j.sortedMailTypes.o
+          sortedMailTypes.c += j.sortedMailTypes.c
+          sortedMailTypes.f += j.sortedMailTypes.f
+          sortedMailTypes.p += j.sortedMailTypes.p
+          sortedMailTypes.i += j.sortedMailTypes.i
         } else if (j.result === "nomail") {
           sortedMailCount += j.sortedMails;
+          sortedMailTypes.o += j.sortedMailTypes.o
+          sortedMailTypes.c += j.sortedMailTypes.c
+          sortedMailTypes.f += j.sortedMailTypes.f
+          sortedMailTypes.p += j.sortedMailTypes.p
+          sortedMailTypes.i += j.sortedMailTypes.i
           document.getElementById("mailToSort").innerHTML = `<p>All mail has been organized for this session.<p>
 <p><strong>Number of mails sorted in this session: </strong>${sortedMailCount}</p>
+<p><strong>How the mail was sorted</strong></p>
+<p><strong>Conversations: </strong>${sortedMailTypes.c}</p>
+<p><strong>Feed: </strong>${sortedMailTypes.f}</p>
+<p><strong>Paper Trail: </strong>${sortedMailTypes.p}</p>
+<p><strong>Screened Out: </strong>${sortedMailTypes.o}</p>
 <p><strong>Last checked at: </strong>${Date()}</p>
 <div>
   <button onclick='indexMail()'>Check for new mail</button>
 </div>`;
           mailIndex = 0;
           sortedMailCount = 0;
+          sortedMailTypes = {
+            o: 0,
+            f: 0,
+            p: 0,
+            c: 0,
+            i: 0
+          }
         }
       });
     })
@@ -61,6 +83,7 @@ const bucketMail = (bucket, fromAddress, uid) => {
         if (j.result === "ok") {
           console.log('Mail bucketed correctly');
           sortedMailCount += 1;
+          sortedMailTypes[bucket] += 1;
           indexMail();
         }
       });
@@ -69,5 +92,12 @@ const bucketMail = (bucket, fromAddress, uid) => {
 
 var mailIndex = 0;
 var sortedMailCount = 0;
+var sortedMailTypes = {
+  o: 0,
+  f: 0,
+  p: 0,
+  c: 0,
+  i: 0
+}
 console.log("testing");
 indexMail();

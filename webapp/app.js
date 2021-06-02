@@ -56,6 +56,13 @@ app.get('/organizer', requireAuth, (req,res) => {
 app.post('/mailToIndex', requireAuth, async (req,res) => {
   console.log(req.body.mailIndex)
   let sortedMails = 0
+  let sortedMailTypes = {
+    o: 0,
+    f: 0,
+    p: 0,
+    c: 0,
+    i: 0
+  }
   if (req.body.mailIndex === 0) {
     sortedMailConfig = JSON.parse(fs.readFileSync('sorted-mail.json'));
     ignoreMail = {}
@@ -92,11 +99,12 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
             if (sortedMailConfig[fromAddress]) {
               sortMail(uid, sortedMailConfig[fromAddress]);
               sortedMails += 1
+              sortedMailTypes[sortedMailConfig[fromAddress]] += 1
               console.log(`Sorting mail with subject ${subject} from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
             }
           }
         } else {
-          res.json({result: "nomail", sortedMails: sortedMails})
+          res.json({result: "nomail", sortedMails: sortedMails, sortedMailTypes: sortedMailTypes})
           break;
         }
       }
@@ -119,17 +127,18 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
         subject = mailToReturn.value.envelope.subject;
         uid = mailToReturn.value.uid;
         if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
-          res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid, sortedMails: sortedMails});
+          res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid, sortedMails: sortedMails, sortedMailTypes: sortedMailTypes});
           break;
         } else {
           if (sortedMailConfig[fromAddress]) {
             sortMail(uid, sortedMailConfig[fromAddress]);
             sortedMails += 1
+            sortedMailTypes[sortedMailConfig[fromAddress]] += 1
             console.log(`Sorting mail with subject ${subject} from ${fromAddress} and option ${sortedMailConfig[fromAddress]}`);
           }
         }
       } else {
-        res.json({result: "nomail", sortedMails: sortedMails})
+        res.json({result: "nomail", sortedMails: sortedMails, sortedMailTypes: sortedMailTypes})
         break;
       }
     }
