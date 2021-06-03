@@ -93,7 +93,7 @@ app.post('/mailToIndex', requireAuth, async (req,res) => {
           subject = mailToReturn.value.envelope.subject;
           uid = mailToReturn.value.uid;
           if (sortedMailConfig[fromAddress] === undefined && ignoreMail[fromAddress] === undefined){
-            res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid, sortedMails: sortedMails});
+            res.json({result: "ok", fromAddress: fromAddress, subject: subject, uid: uid, sortedMails: sortedMails, sortedMailTypes: sortedMailTypes});
             break;
           } else {
             if (sortedMailConfig[fromAddress]) {
