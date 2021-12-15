@@ -1,0 +1,10 @@
+{
+  "appUser": "<YOUR_USERNAME_TO_USE_ON_APP>",
+  "appPassword": "<REPLACE_WITH_STRONG_PASS>",
+  "mailConfig": {
+    "host": "<REPLACE_WITH_IMAP_HOST>",
+    "port": <PROBABLY 993>,
+    "username": "<YOUR_EMAIL>",
+    "password": "<YOUR_EMAIL_PASSWORD>"
+  }
+}
